@@ -1,2 +1,2 @@
-# ad2sys-mycarriere 
+# ad2sys-studiopro 
 Module AD2SYS sponsor-ready 
