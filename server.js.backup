@@ -1,0 +1,53 @@
+const express = require('express');
+const cors = require('cors');
+const os = require('os');
+
+const app = express();
+const PORT = 8050;
+
+app.use(cors());
+app.use(express.json());
+
+// Middleware de Sécurité : Garde-Fou ems@path
+const securityMiddleware = (req, res, next) => {
+    const proxyHeader = req.headers['x-anes-proxy'];
+    
+    // On exige que la requête provienne du proxy backend officiel
+    if (proxyHeader !== 'ems@path') {
+        console.warn(`[SECURITY] Tentative de connexion bloquée depuis ${req.ip} (Bypass du Moteur MPC détecté).`);
+        return res.status(403).json({ 
+            error: "Connexion refusée. L'architecture maître exige un routage via anes-mpc et ems@path." 
+        });
+    }
+    next();
+};
+
+app.get('/health', securityMiddleware, (req, res) => {
+    // Collecte des métriques réelles du système hôte
+    const freeMemMB = Math.round(os.freemem() / 1024 / 1024);
+    const totalMemMB = Math.round(os.totalmem() / 1024 / 1024);
+    const memUsagePercent = Math.round(((totalMemMB - freeMemMB) / totalMemMB) * 100);
+    
+    const cpus = os.cpus();
+    const cpuModel = cpus.length > 0 ? cpus[0].model : 'Inconnu';
+    
+    console.log(`[MONITOR] Ping reçu depuis le routeur maître. Génération des métriques...`);
+
+    res.json({
+        status: "success",
+        satellite: "online",
+        port: PORT,
+        uptime_seconds: Math.round(process.uptime()),
+        metrics: {
+            cpu: cpuModel,
+            cores: cpus.length,
+            memory_usage_percent: memUsagePercent,
+            free_memory_mb: freeMemMB
+        }
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`📡 [AD2SYS-ANES-MONITOR] Satellite en orbite sur le port ${PORT}`);
+    console.log(`🛡️  Garde-Fou Activé : Accepte uniquement les connexions X-ANES-Proxy: ems@path`);
+});
